@@ -1,7 +1,7 @@
 import { DecodedMessage, Dm, Group, SortDirection } from "@xmtp/browser-sdk";
 import type { Identifier } from "@xmtp/wasm-bindings";
 import { defineStore, storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { onUnmounted, ref, toRaw, watch } from "vue";
 import { useConversationStore } from "./conversationStore";
 import { useWalletStore } from "./walletStore";
 
@@ -82,7 +82,8 @@ export const useMessageStore = defineStore("message", () => {
     loading.value = true;
     error.value = null;
     try {
-      const decoded = await activeConversation.raw.messages({
+      const rawConversation = toRaw(activeConversation.raw) as Dm | Group;
+      const decoded = await rawConversation.messages({
         limit: 50n,
         direction: SortDirection.Descending,
       });
@@ -104,7 +105,8 @@ export const useMessageStore = defineStore("message", () => {
     conversation: Dm | Group,
     content: string
   ) => {
-    await conversation.send(content);
+    const target = toRaw(conversation) as Dm | Group;
+    await target.send(content);
     await loadMessages();
   };
 
@@ -130,7 +132,7 @@ export const useMessageStore = defineStore("message", () => {
     try {
       if (normalizedRecipients.length === 0 && activeConversation) {
         await sendToConversation(
-          activeConversation.raw as Dm | Group,
+          toRaw(activeConversation.raw) as Dm | Group,
           trimmedContent
         );
       } else {
@@ -159,13 +161,52 @@ export const useMessageStore = defineStore("message", () => {
     }
   };
 
+  let activeStream: { return?: () => Promise<unknown> } | undefined;
+
+  const stopStream = () => {
+    if (activeStream && typeof activeStream.return === "function") {
+      void activeStream.return();
+    }
+    activeStream = undefined;
+  };
+
+  const startStream = async () => {
+    stopStream();
+    const activeConversation = current.value;
+    const activeClient = client.value;
+    if (!activeClient || !activeConversation) {
+      return;
+    }
+    const rawConversation = toRaw(activeConversation.raw) as Dm | Group;
+    activeStream = await rawConversation.stream({
+      onValue: (message) => {
+        const inboxId = activeClient.inboxId ?? null;
+        const item = toMessageItem(message, inboxId);
+        items.value = [...items.value, item].sort((a, b) =>
+          a.sentAtNs < b.sentAtNs ? -1 : 1
+        );
+      },
+      onError: (streamError) => {
+        error.value =
+          streamError instanceof Error
+            ? streamError.message
+            : String(streamError);
+      },
+    });
+  };
+
   watch(
     () => current.value?.id,
-    () => {
-      void loadMessages();
+    async () => {
+      await loadMessages();
+      await startStream();
     },
     { immediate: true }
   );
+
+  onUnmounted(() => {
+    stopStream();
+  });
 
   return {
     loading,

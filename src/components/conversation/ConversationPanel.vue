@@ -10,6 +10,7 @@
 
     <section class="messages" ref="scrollContainer">
       <p v-if="loading" class="hint">正在获取消息…</p>
+      <p v-else-if="errorText" class="hint error">{{ errorText }}</p>
       <p v-else-if="messages.length === 0" class="hint">
         暂无消息，快来发送第一条吧。
       </p>
@@ -31,6 +32,7 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useConversationStore } from "../../stores/conversationStore";
 import { useMessageStore } from "../../stores/messageStore";
@@ -38,12 +40,16 @@ import { useMessageStore } from "../../stores/messageStore";
 const conversationStore = useConversationStore();
 const messageStore = useMessageStore();
 
+const { current } = storeToRefs(conversationStore);
+const { loading: loadingRef, items, error } = storeToRefs(messageStore);
+
 const scrollContainer = ref<HTMLElement | null>(null);
 
-const loading = computed(() => messageStore.loading);
-const messages = computed(() => messageStore.items);
-const title = computed(() => conversationStore.current?.title ?? "未选择会话");
-const subtitle = computed(() => conversationStore.current?.subtitle ?? "");
+const loading = computed(() => loadingRef.value);
+const messages = computed(() => items.value);
+const title = computed(() => current.value?.title ?? "未选择会话");
+const subtitle = computed(() => current.value?.subtitle ?? "");
+const errorText = computed(() => error.value);
 
 const loadMessages = async () => {
   await messageStore.loadMessages();
@@ -59,7 +65,7 @@ const scrollToBottom = () => {
 
 watch(messages, scrollToBottom, { deep: true });
 watch(
-  () => conversationStore.current?.id,
+  () => current.value?.id,
   () => {
     void loadMessages();
   }
@@ -157,5 +163,9 @@ onMounted(() => {
   margin: auto 0;
   text-align: center;
   color: rgba(209, 213, 255, 0.7);
+}
+
+.hint.error {
+  color: #fca5a5;
 }
 </style>

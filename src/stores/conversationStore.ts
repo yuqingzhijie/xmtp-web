@@ -1,6 +1,6 @@
 import { Conversation, Dm, Group } from "@xmtp/browser-sdk";
 import { defineStore, storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, markRaw, ref, shallowRef } from "vue";
 import { useWalletStore } from "./walletStore";
 
 export type ConversationListItem = {
@@ -23,7 +23,7 @@ export const useConversationStore = defineStore("conversation", () => {
   const { client } = storeToRefs(walletStore);
 
   const loading = ref(false);
-  const items = ref<ConversationListItem[]>([]);
+  const items = shallowRef<ConversationListItem[]>([]);
   const activeId = ref<string | null>(null);
   const initialized = ref(false);
 
@@ -45,7 +45,7 @@ export const useConversationStore = defineStore("conversation", () => {
         subtitle: creator,
         kind: type === "group" ? "group" : "dm",
         kindLabel: type === "group" ? "群组" : "私信",
-        raw: group,
+        raw: markRaw(group),
       };
     }
 
@@ -59,7 +59,7 @@ export const useConversationStore = defineStore("conversation", () => {
         subtitle: "私信对话",
         kind: "dm",
         kindLabel: "私信",
-        raw: dm,
+        raw: markRaw(dm),
       };
     }
 
@@ -74,6 +74,7 @@ export const useConversationStore = defineStore("conversation", () => {
     }
     loading.value = true;
     try {
+      await activeClient.conversations.sync();
       const convos = await activeClient.conversations.list();
       const mapped: ConversationListItem[] = [];
       for (const convo of convos) {

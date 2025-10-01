@@ -30,17 +30,18 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { computed, onMounted } from "vue";
 import { useConversationStore } from "../../stores/conversationStore";
 
 const conversationStore = useConversationStore();
+const { loading, itemsView, activeId, initialized } =
+  storeToRefs(conversationStore);
 
-const loading = computed(() => conversationStore.loading);
-const conversations = computed(() => conversationStore.itemsView);
-const activeId = computed(() => conversationStore.activeId);
+const conversations = computed(() => itemsView.value);
 
 const refresh = () => {
-  conversationStore.fetchConversations();
+  void conversationStore.fetchConversations();
 };
 
 const select = (id: string) => {
@@ -48,7 +49,7 @@ const select = (id: string) => {
 };
 
 onMounted(() => {
-  if (!conversationStore.initialized) {
+  if (!initialized.value) {
     refresh();
   }
 });
