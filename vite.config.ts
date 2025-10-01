@@ -1,21 +1,11 @@
-import react from "@vitejs/plugin-react";
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfills({
-      include: ["buffer", "process"],
-    }),
-  ],
-  resolve: {
-    alias: {
-      buffer: "buffer",
-    },
-  },
-  define: {
-    "process.env": {},
+  plugins: [vue()],
+  optimizeDeps: {
+    exclude: ["@xmtp/wasm-bindings", "@xmtp/browser-sdk"],
+    include: ["@xmtp/proto"],
   },
 });
