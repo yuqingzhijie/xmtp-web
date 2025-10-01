@@ -34,13 +34,16 @@ export const createXMTPSigner = (
       message: payload,
       account,
     });
-    if (signature instanceof Uint8Array) {
-      return signature;
+
+    if (typeof signature !== "string") {
+      const maybeArray = signature as Uint8Array;
+      if (maybeArray instanceof Uint8Array) {
+        return maybeArray;
+      }
+      throw new Error("钱包返回未知的签名格式");
     }
-    if (typeof signature === "string") {
-      const hex = signature.startsWith("0x") ? signature.slice(2) : signature;
-      return hexToBytes(hex);
-    }
-    throw new Error("钱包返回未知的签名格式");
+
+    const hex = signature.startsWith("0x") ? signature.slice(2) : signature;
+    return hexToBytes(hex);
   },
 });

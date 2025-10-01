@@ -11,15 +11,35 @@ export const connectInjectedWallet = async (): Promise<ConnectedWallet> => {
     throw new Error("未检测到可用的钱包扩展，请先安装 MetaMask 或其他兼容钱包");
   }
 
+  const ethereum = (window as any).ethereum;
+
   const walletClient = createWalletClient({
     chain: baseSepolia,
-    transport: custom((window as any).ethereum),
+    transport: custom(ethereum),
   });
 
   let addresses = await walletClient.getAddresses();
 
   if (!addresses.length) {
-    addresses = await walletClient.requestAddresses();
+    try {
+      const requested = (await ethereum.request({
+        method: "eth_requestAccounts",
+      })) as string[];
+
+      if (requested?.length) {
+        addresses = requested as typeof addresses;
+      }
+    } catch (err) {
+      throw new Error("钱包拒绝了连接请求");
+    }
+
+    if (!addresses.length) {
+      addresses = await walletClient.getAddresses();
+    }
+
+    if (!addresses.length) {
+      addresses = await walletClient.requestAddresses();
+    }
   }
 
   const [address] = addresses;
